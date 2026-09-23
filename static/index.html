@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vulnerability Management + SLA</title>
+<style>
+:root {
+  --bg: #0f1419; --panel: #1a2028; --panel2: #232a36; --border: #2f3845;
+  --text: #e6edf3; --text-dim: #8b949e; --accent: #58a6ff;
+  --green: #3fb950; --yellow: #d29922; --orange: #f0883e; --red: #f85149;
+  --critical: #f85149; --high: #f0883e; --medium: #d29922; --low: #3fb950;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.55; }
+.topbar { background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  padding: 16px 32px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; }
+.topbar h1 { font-size: 18px; font-weight: 600; }
+.topbar .meta { font-size: 12px; color: var(--text-dim); }
+.container { padding: 24px 32px; max-width: 1600px; margin: 0 auto; }
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; }
+.card .label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.card .value { font-size: 28px; font-weight: 700; margin-top: 8px; }
+.card .sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+.card.critical .value { color: var(--critical); }
+.card.success .value { color: var(--green); }
+.card.warning .value { color: var(--yellow); }
+.card.info .value { color: var(--accent); }
+.section { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+.section .header { padding: 14px 20px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; }
+.section .header h2 { font-size: 14px; font-weight: 600; }
+.section .body { padding: 16px 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table th, table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+table th { color: var(--text-dim); font-weight: 500; font-size: 11px; text-transform: uppercase; }
+table tr:hover td { background: var(--panel2); }
+table td.mono { font-family: "SF Mono", Menlo, monospace; font-size: 12px; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.tag.critical { background: rgba(248,81,73,0.15); color: var(--critical); border: 1px solid rgba(248,81,73,0.4); }
+.tag.high { background: rgba(240,136,62,0.15); color: var(--high); border: 1px solid rgba(240,136,62,0.4); }
+.tag.medium { background: rgba(210,153,34,0.15); color: var(--medium); border: 1px solid rgba(210,153,34,0.4); }
+.tag.low { background: rgba(63,185,80,0.15); color: var(--low); border: 1px solid rgba(63,185,80,0.4); }
+.tag.normal { background: rgba(88,166,255,0.15); color: var(--accent); border: 1px solid rgba(88,166,255,0.4); }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding: 0 20px; background: var(--panel); overflow-x: auto; }
+.tab { padding: 10px 16px; font-size: 13px; cursor: pointer; border: none; background: transparent; color: var(--text-dim); border-bottom: 2px solid transparent; white-space: nowrap; }
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.tab:hover { color: var(--text); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; padding: 16px 20px; }
+.form-item { display: flex; flex-direction: column; margin-bottom: 12px; }
+.form-item label { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+.form-item input, .form-item select, .form-item textarea {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  padding: 8px 10px; border-radius: 4px; font-size: 13px; font-family: inherit; }
+.form-item textarea { min-height: 120px; resize: vertical; font-family: "SF Mono", Menlo, monospace; font-size: 12px; }
+.btn { background: var(--accent); color: #0d1117; border: none; padding: 8px 16px;
+  border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 13px; }
+.btn:hover { background: #79b8ff; }
+.btn.secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+.btn.danger { background: var(--critical); color: white; }
+.result-box { background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  padding: 12px; margin-top: 12px; font-family: "SF Mono", Menlo, monospace;
+  font-size: 12px; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
+.filter-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.filter-bar select { background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+.empty { color: var(--text-dim); font-style: italic; padding: 12px 0; }
+.kev-badge { background: #f85149; color: white; font-weight: 700; padding: 1px 6px;
+  border-radius: 3px; font-size: 10px; margin-left: 4px; vertical-align: middle; }
+.bar-row { display: flex; align-items: center; gap: 12px; margin: 4px 0; }
+.bar-row .name { width: 110px; font-size: 12px; }
+.bar-row .bar { flex: 1; height: 18px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+.bar-row .fill { height: 100%; display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 600; color: var(--bg); }
+.bar-row .num { width: 50px; text-align: right; font-size: 12px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>🛡️ Vulnerability Management + SLA</h1>
+  <div class="meta">
+    <span>CVSS + EPSS + CISA KEV · Composite Risk · SLA Tracking</span>
+    · <a href="/docs" style="color:var(--accent)">API Docs</a>
+    · <a href="/health" style="color:var(--accent)">Health</a>
+  </div>
+</div>
+
+<div class="container">
+  <!-- 4 metric cards -->
+  <div class="cards">
+    <div class="card critical">
+      <div class="label">SLA BREACHED</div>
+      <div class="value" id="m-breached">—</div>
+      <div class="sub">已超期未修复</div>
+    </div>
+    <div class="card warning">
+      <div class="label">SLA AT_RISK</div>
+      <div class="value" id="m-risk">—</div>
+      <div class="sub">7 天内到期</div>
+    </div>
+    <div class="card info">
+      <div class="label">CISA KEV Open</div>
+      <div class="value" id="m-kev">—</div>
+      <div class="sub">在野利用已知</div>
+    </div>
+    <div class="card">
+      <div class="label">Open Vulnerabilities</div>
+      <div class="value" id="m-open">—</div>
+      <div class="sub"><span id="m-total">—</span> 总计</div>
+    </div>
+  </div>
+
+  <div class="section" style="padding:0">
+    <div class="tabs">
+      <button class="tab active" data-tab="breach">🚨 SLA 预警</button>
+      <button class="tab" data-tab="vulns">📋 漏洞清单</button>
+      <button class="tab" data-tab="assets">🖥️ 资产</button>
+      <button class="tab" data-tab="exceptions">📝 风险例外</button>
+      <button class="tab" data-tab="scan">📤 扫描上传</button>
+      <button class="tab" data-tab="report">📊 SOC 2 报告</button>
+    </div>
+
+    <!-- Tab: SLA Breach -->
+    <div class="tab-panel active" data-tab="breach">
+      <div class="body">
+        <div class="filter-bar">
+          <span style="color:var(--text-dim);font-size:11px" id="b-count">—</span>
+          <button class="btn secondary" onclick="reevaluate()">🔄 重新评估 SLA</button>
+        </div>
+        <table id="tbl-breach">
+          <thead>
+            <tr>
+              <th>Vuln</th><th>CVE</th><th>Title</th><th>Asset</th>
+              <th>Severity</th><th>SLA</th><th>Due</th><th>Days Left</th>
+              <th>KEV</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="9" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab: Vulnerabilities -->
+    <div class="tab-panel" data-tab="vulns">
+      <div class="body">
+        <div class="filter-bar">
+          <label>Severity</label>
+          <select id="v-sev"><option value="">All</option>
+            <option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option></select>
+          <label>Status</label>
+          <select id="v-status"><option value="">All</option>
+            <option>OPEN</option><option>IN_PROGRESS</option><option>RESOLVED</option><option>RISK_ACCEPTED</option></select>
+          <span style="color:var(--text-dim);font-size:11px" id="v-count">—</span>
+        </div>
+        <table id="tbl-vulns">
+          <thead>
+            <tr>
+              <th>Vuln</th><th>CVE</th><th>Title</th><th>Asset</th><th>CVSS</th>
+              <th>EPSS</th><th>Severity</th><th>SLA</th>
+              <th>Status</th><th>Source</th><th>Team</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="11" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab: Assets -->
+    <div class="tab-panel" data-tab="assets">
+      <div class="body">
+        <div class="filter-bar">
+          <label>Tier</label>
+          <select id="a-tier"><option value="">All</option>
+            <option>TIER_1_CRITICAL</option><option>TIER_2_PROD</option><option>TIER_3_NONPROD</option></select>
+          <span style="color:var(--text-dim);font-size:11px" id="a-count">—</span>
+        </div>
+        <table id="tbl-assets">
+          <thead>
+            <tr><th>Asset</th><th>Name</th><th>Type</th><th>Env</th>
+              <th>Tier</th><th>Weight</th><th>Team</th><th>Open Vulns</th></tr>
+          </thead>
+          <tbody><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab: Exceptions -->
+    <div class="tab-panel" data-tab="exceptions">
+      <div class="body">
+        <div class="filter-bar">
+          <label>Status</label>
+          <select id="e-status"><option value="">All</option>
+            <option>PENDING</option><option>APPROVED</option><option>REJECTED</option><option>EXPIRED</option></select>
+          <span style="color:var(--text-dim);font-size:11px" id="e-count">—</span>
+        </div>
+        <table id="tbl-exc">
+          <thead>
+            <tr><th>Exception</th><th>Vuln</th><th>Requester</th>
+              <th>Justification</th><th>Until</th><th>Status</th><th>操作</th></tr>
+          </thead>
+          <tbody><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab: Scan Upload -->
+    <div class="tab-panel" data-tab="scan">
+      <div class="body">
+        <div class="form-item">
+          <label>Source</label>
+          <select id="s-source"><option value="TRIVY">TRIVY</option><option value="NESSUS">NESSUS</option></select>
+        </div>
+        <div class="form-item">
+          <label>Asset ID</label>
+          <input id="s-asset" value="AST-001" placeholder="AST-001">
+        </div>
+        <div class="form-item">
+          <label>Scan JSON payload（粘贴 Trivy/Nessus 输出）</label>
+          <textarea id="s-payload" placeholder='Trivy 格式: {"Results": [{"Target": "...", "Vulnerabilities": [...]}]}'>{
+  "Results": [
+    {"Target": "ubuntu:22.04", "Vulnerabilities": [
+      {"VulnerabilityID": "CVE-2024-NEW1", "PkgName": "openssl", "Severity": "CRITICAL",
+       "CVSS": {"nvd": {"V3Score": 9.8}}, "Title": "OpenSSL RCE", "Description": "test",
+       "FixedVersion": "3.0.13"}
+    ]}
+  ]
+}</textarea>
+        </div>
+        <button class="btn" id="btn-scan">📤 解析 + 入库</button>
+        <div class="result-box" id="scan-result">点击「解析 + 入库」查看结果</div>
+      </div>
+    </div>
+
+    <!-- Tab: Report -->
+    <div class="tab-panel" data-tab="report">
+      <div class="body">
+        <button class="btn" onclick="loadReport()">📊 生成 SOC 2 CC7.1 报告</button>
+        <div class="result-box" id="report-result">点击生成报告</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelector(`.tab-panel[data-tab="${btn.dataset.tab}"]`).classList.add('active');
+    if (btn.dataset.tab === 'vulns') loadVulns();
+    if (btn.dataset.tab === 'assets') loadAssets();
+    if (btn.dataset.tab === 'exceptions') loadExceptions();
+  });
+});
+
+async function fetchJSON(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return await r.json();
+}
+function tag(text, cls) { return `<span class="tag ${cls}">${text}</span>`; }
+function sevTag(s) {
+  const m = {CRITICAL:'critical', HIGH:'high', MEDIUM:'medium', LOW:'low'};
+  return tag(s, m[s] || 'normal');
+}
+function slaTag(s) {
+  const m = {ON_TRACK:'low', AT_RISK:'medium', BREACHED:'critical', RESOLVED:'normal'};
+  return tag(s, m[s] || 'normal');
+}
+
+// ============================================
+// Summary
+// ============================================
+async function loadSummary() {
+  try {
+    const s = await fetchJSON('/api/dashboard/summary');
+    document.getElementById('m-breached').textContent = s.sla.breached;
+    document.getElementById('m-risk').textContent = s.sla.at_risk;
+    document.getElementById('m-kev').textContent = s.kev_open;
+    document.getElementById('m-open').textContent = s.vulnerabilities.open;
+    document.getElementById('m-total').textContent = s.vulnerabilities.total;
+  } catch(e) { console.error('summary:', e); }
+}
+
+// ============================================
+// Breach
+// ============================================
+async function loadBreach() {
+  try {
+    const d = await fetchJSON('/api/sla/breaches?limit=100');
+    document.getElementById('b-count').textContent = `${d.count} 条`;
+    const tbody = document.querySelector('#tbl-breach tbody');
+    if (!d.items.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="empty">无超期/临期 ✅</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.items.map(v => `<tr>
+      <td class="mono">${v.vuln_id}</td>
+      <td class="mono">${v.cve_id||'—'}</td>
+      <td>${v.title}</td>
+      <td class="mono">${v.asset_id}</td>
+      <td>${sevTag(v.severity)}</td>
+      <td>${slaTag(v.status)}</td>
+      <td style="font-size:11px;color:var(--text-dim)">${v.due_date}</td>
+      <td><b style="color:${v.days_remaining<0?'var(--critical)':'var(--medium)'}">${v.days_remaining}</b></td>
+      <td>${v.cve_id && v.cve_id.startsWith('CVE') ? '' : ''}</td>
+    </tr>`).join('');
+  } catch(e) { console.error(e); }
+}
+async function reevaluate() {
+  const r = await fetchJSON('/api/sla/reevaluate', {method:'POST'});
+  loadSummary(); loadBreach();
+  alert(`已重新评估 ${r.updated} 条 SLA`);
+}
+
+// ============================================
+// Vulns
+// ============================================
+async function loadVulns() {
+  const severity = document.getElementById('v-sev').value;
+  const status = document.getElementById('v-status').value;
+  const params = new URLSearchParams();
+  if (severity) params.set('severity', severity);
+  if (status) params.set('status', status);
+  params.set('limit', '200');
+  try {
+    const d = await fetchJSON('/api/vulnerabilities?' + params);
+    document.getElementById('v-count').textContent = `${d.count} 条`;
+    const tbody = document.querySelector('#tbl-vulns tbody');
+    if (!d.items.length) {
+      tbody.innerHTML = '<tr><td colspan="11" class="empty">无</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.items.map(v => {
+      const kev = v.is_cisa_kev ? '<span class="kev-badge">KEV</span>' : '';
+      const stTag = ({OPEN:'critical', IN_PROGRESS:'medium', RESOLVED:'low', RISK_ACCEPTED:'normal'}[v.status] || 'normal');
+      return `<tr>
+        <td class="mono">${v.vuln_id}</td>
+        <td class="mono">${v.cve_id||'—'} ${kev}</td>
+        <td style="font-size:12px">${v.title}</td>
+        <td class="mono" style="font-size:11px">${v.asset_id}</td>
+        <td>${v.cvss_base?.toFixed(1)||'—'}</td>
+        <td>${v.epss_score?.toFixed(2)||'—'}</td>
+        <td>${sevTag(v.severity)}</td>
+        <td>${v.sla_status?slaTag(v.sla_status):'—'}</td>
+        <td>${tag(v.status, stTag)}</td>
+        <td style="font-size:11px;color:var(--text-dim)">${v.source}</td>
+        <td style="font-size:11px">${v.assigned_team}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+document.getElementById('v-sev').addEventListener('change', loadVulns);
+document.getElementById('v-status').addEventListener('change', loadVulns);
+
+// ============================================
+// Assets
+// ============================================
+async function loadAssets() {
+  const tier = document.getElementById('a-tier').value;
+  const params = new URLSearchParams();
+  if (tier) params.set('tier', tier);
+  try {
+    const d = await fetchJSON('/api/assets?' + params);
+    document.getElementById('a-count').textContent = `${d.count} 个`;
+    const tbody = document.querySelector('#tbl-assets tbody');
+    if (!d.items.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">无</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.items.map(a => {
+      const tierTag = {TIER_1_CRITICAL:'critical', TIER_2_PROD:'high', TIER_3_NONPROD:'medium'}[a.tier] || 'normal';
+      return `<tr>
+        <td class="mono">${a.asset_id}</td>
+        <td>${a.asset_name}</td>
+        <td>${a.asset_type}</td>
+        <td>${a.environment}</td>
+        <td>${tag(a.tier, tierTag)}</td>
+        <td>${a.criticality_weight}</td>
+        <td style="font-size:11px">${a.owner_team}</td>
+        <td style="text-align:center;color:${a.open_vuln_count>5?'var(--critical)':'var(--text)'}"><b>${a.open_vuln_count}</b></td>
+      </tr>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+document.getElementById('a-tier').addEventListener('change', loadAssets);
+
+// ============================================
+// Exceptions
+// ============================================
+async function loadExceptions() {
+  const status = document.getElementById('e-status').value;
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  try {
+    const d = await fetchJSON('/api/exceptions?' + params);
+    document.getElementById('e-count').textContent = `${d.count} 条`;
+    const tbody = document.querySelector('#tbl-exc tbody');
+    if (!d.items.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">无</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.items.map(e => {
+      const stTag = {PENDING:'medium', APPROVED:'low', REJECTED:'critical', EXPIRED:'high'}[e.status] || 'normal';
+      const btn = e.status === 'PENDING'
+        ? `<button class="btn secondary" onclick="decideExc('${e.exception_id}', true)">✅ APPROVE</button>
+           <button class="btn danger" onclick="decideExc('${e.exception_id}', false)">❌ REJECT</button>`
+        : `<span style="color:var(--text-dim);font-size:11px">${e.status}</span>`;
+      return `<tr>
+        <td class="mono">${e.exception_id}</td>
+        <td class="mono">${e.vuln_id}</td>
+        <td style="font-size:11px">${e.requested_by}</td>
+        <td style="font-size:11px;color:var(--text-dim)">${e.justification}</td>
+        <td style="font-size:11px">${e.exception_until}</td>
+        <td>${tag(e.status, stTag)}</td>
+        <td>${btn}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+async function decideExc(eid, approved) {
+  try {
+    await fetchJSON(`/api/exceptions/${eid}/decide`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({approved, approved_by:'CISO'})
+    });
+    loadExceptions(); loadSummary();
+  } catch(e) { alert('失败: ' + e.message); }
+}
+document.getElementById('e-status').addEventListener('change', loadExceptions);
+
+// ============================================
+// Scan Upload
+// ============================================
+document.getElementById('btn-scan').addEventListener('click', async () => {
+  const source = document.getElementById('s-source').value;
+  const asset_id = document.getElementById('s-asset').value;
+  const payload_text = document.getElementById('s-payload').value;
+  const out = document.getElementById('scan-result');
+  out.textContent = '解析中…';
+  let payload;
+  try {
+    payload = JSON.parse(payload_text);
+  } catch(e) {
+    out.textContent = 'JSON parse error: ' + e.message;
+    return;
+  }
+  try {
+    const r = await fetchJSON(`/api/scan/upload?source=${source}&asset_id=${asset_id}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    out.textContent = JSON.stringify(r, null, 2);
+    loadSummary(); loadBreach(); loadVulns();
+  } catch(e) {
+    out.textContent = 'Error: ' + e.message;
+  }
+});
+
+// ============================================
+// Report
+// ============================================
+async function loadReport() {
+  const r = await fetchJSON('/api/report/soc2');
+  document.getElementById('report-result').textContent = JSON.stringify(r, null, 2);
+}
+
+// Init
+loadSummary();
+loadBreach();
+</script>
+</body>
+</html>

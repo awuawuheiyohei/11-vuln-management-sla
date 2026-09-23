@@ -1,26 +1,20 @@
-"""Vulnerability Management + SLA - core"""
+"""Vuln Management - core utilities"""
 
-import os, re, sqlite3
+import os
+import re
 from pathlib import Path
-from datetime import datetime
-from typing import Optional
 
 import requests
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 DATA_DIR.mkdir(exist_ok=True)
-DB_PATH = DATA_DIR / "app.db"
+
+from .models.db import DB_PATH, init_db  # noqa: E402
 
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.MiniMax.chat/v1")
 LLM_MODEL = os.environ.get("LLM_MODEL", "MiniMax-M3")
-
-
-def init_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.commit()
-    return conn
 
 
 def strip_thinking(content: str) -> str:
@@ -58,3 +52,10 @@ def load_prompt(name):
     if not path.exists():
         raise FileNotFoundError("Prompt not found: " + str(path))
     return path.read_text(encoding="utf-8")
+
+
+__all__ = [
+    "ROOT", "DATA_DIR", "DB_PATH", "init_db",
+    "LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL",
+    "strip_thinking", "call_llm", "load_prompt",
+]
