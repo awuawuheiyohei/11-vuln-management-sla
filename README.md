@@ -128,7 +128,7 @@ CISA KEV → 直接 CRITICAL（覆盖 composite）
 
 ## 📝 PRD 来源
 
-本项目基于 `/Users/jiangwenrui/Downloads/mass/Interview/Security_and_GRC_14_Projects_Plan/11_Vulnerability_Management_Lifecycle_and_SLA.md` 完整规划。
+本项目基于 `/Users/jiangwenrui/Downloads/mass/25-Interview/Security_and_GRC_14_Projects_Plan/11_Vulnerability_Management_Lifecycle_and_SLA.md` 完整规划。
 
 ## 📄 License
 
